@@ -1,0 +1,4 @@
+openai
+functions-framework
+requests
+twilio
