@@ -1,4 +1,2 @@
-openai
-functions-framework
-requests
-twilio
+fastapi
+uvicorn
