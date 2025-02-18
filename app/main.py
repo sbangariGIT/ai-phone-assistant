@@ -1,8 +1,4 @@
 # main.py
-from fastapi import FastAPI
-
-app = FastAPI()
-
 import os
 import json
 import base64
@@ -35,6 +31,8 @@ SHOW_TIMING_MATH = False
 
 if not OPENAI_API_KEY:
     raise ValueError('Missing the OpenAI API key. Please set it in the .env file.')
+
+app = FastAPI()
 
 @app.get("/", response_class=JSONResponse)
 async def index_page():
