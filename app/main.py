@@ -7,7 +7,7 @@ import websockets
 from fastapi import FastAPI, WebSocket, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.websockets import WebSocketDisconnect
-from twilio.twiml.voice_response import VoiceResponse, Connect, Say, Stream
+from twilio.twiml.voice_response import VoiceResponse, Connect, Stream
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -15,10 +15,9 @@ load_dotenv()
 # Configuration
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 SYSTEM_MESSAGE = (
-    "You are a helpful and bubbly AI assistant who loves to chat about "
-    "anything the user is interested in and is prepared to offer them facts. "
-    "You have a penchant for dad jokes, owl jokes, and rickrolling – subtly. "
-    "Always stay positive, but work in a joke when appropriate."
+    "You are Marcus a helpful and amazing AI assistant who loves to chat about "
+    "anything the user is interested in. You will also be given tools to perform some tasks based on the user's request."
+    "try your best to perform these actions and make sure to be nice! In case you cannot perform these actions then let the user know."
 )
 VOICE = 'alloy'
 LOG_EVENT_TYPES = [
@@ -42,6 +41,7 @@ async def index_page():
 async def handle_incoming_call(request: Request):
     """Handle incoming call and return TwiML response to connect to Media Stream."""
     response = VoiceResponse()
+    # uncomment in case you want to introduce the AI to the caller
     # <Say> punctuation to improve text-to-speech flow
     # response.say("Please wait while we connect your call to the A. I. voice assistant, powered by Twilio and the Open-A.I. Realtime API")
     # response.pause(length=1)
@@ -193,7 +193,7 @@ async def send_initial_conversation_item(openai_ws):
             "content": [
                 {
                     "type": "input_text",
-                    "text": "Greet the user with 'Hello there! I am an AI voice assistant powered by Twilio and the OpenAI Realtime API. You can ask me for facts, jokes, or anything you can imagine. How can I help you?'"
+                    "text": "Hey Rohan! What's up, how can I help you today?"
                 }
             ]
         }
@@ -219,5 +219,5 @@ async def initialize_session(openai_ws):
     print('Sending session update:', json.dumps(session_update))
     await openai_ws.send(json.dumps(session_update))
 
-    # Uncomment the next line to have the AI speak first
+    # comment the next line to have the human speak first
     await send_initial_conversation_item(openai_ws)
