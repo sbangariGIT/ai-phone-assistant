@@ -9,6 +9,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.websockets import WebSocketDisconnect
 from twilio.twiml.voice_response import VoiceResponse, Connect, Stream
 from dotenv import load_dotenv
+from .slacklog import dbg
 
 load_dotenv()
 
@@ -55,7 +56,7 @@ async def handle_incoming_call(request: Request):
 @app.websocket("/media-stream")
 async def handle_media_stream(websocket: WebSocket):
     """Handle WebSocket connections between Twilio and OpenAI."""
-    print("Client connected")
+    dbg.notify_slack("Client connected")
     await websocket.accept()
 
     async with websockets.connect(
@@ -89,7 +90,7 @@ async def handle_media_stream(websocket: WebSocket):
                         await openai_ws.send(json.dumps(audio_append))
                     elif data['event'] == 'start':
                         stream_sid = data['start']['streamSid']
-                        print(f"Incoming stream has started {stream_sid}")
+                        dbg.notify_slack(f"Incoming stream has started {stream_sid}")
                         response_start_timestamp_twilio = None
                         latest_media_timestamp = 0
                         last_assistant_item = None
@@ -97,7 +98,7 @@ async def handle_media_stream(websocket: WebSocket):
                         if mark_queue:
                             mark_queue.pop(0)
             except WebSocketDisconnect:
-                print("Client disconnected.")
+                dbg.notify_slack("Client disconnected.")
                 if openai_ws.open:
                     await openai_ws.close()
 
@@ -108,7 +109,7 @@ async def handle_media_stream(websocket: WebSocket):
                 async for openai_message in openai_ws:
                     response = json.loads(openai_message)
                     if response['type'] in LOG_EVENT_TYPES:
-                        print(f"Received event: {response['type']}", response)
+                        dbg.notify_slack(f"Received event: {response['type']}", response)
 
                     if response.get('type') == 'response.audio.delta' and 'delta' in response:
                         audio_payload = base64.b64encode(base64.b64decode(response['delta'])).decode('utf-8')
@@ -124,7 +125,7 @@ async def handle_media_stream(websocket: WebSocket):
                         if response_start_timestamp_twilio is None:
                             response_start_timestamp_twilio = latest_media_timestamp
                             if SHOW_TIMING_MATH:
-                                print(f"Setting start timestamp for new response: {response_start_timestamp_twilio}ms")
+                                dbg.notify_slack(f"Setting start timestamp for new response: {response_start_timestamp_twilio}ms")
 
                         # Update last_assistant_item safely
                         if response.get('item_id'):
@@ -134,25 +135,25 @@ async def handle_media_stream(websocket: WebSocket):
 
                     # Trigger an interruption. Your use case might work better using `input_audio_buffer.speech_stopped`, or combining the two.
                     if response.get('type') == 'input_audio_buffer.speech_started':
-                        print("Speech started detected.")
+                        dbg.notify_slack("Speech started detected.")
                         if last_assistant_item:
-                            print(f"Interrupting response with id: {last_assistant_item}")
+                            dbg.notify_slack(f"Interrupting response with id: {last_assistant_item}")
                             await handle_speech_started_event()
             except Exception as e:
-                print(f"Error in send_to_twilio: {e}")
+                dbg.notify_slack(f"Error in send_to_twilio: {e}")
 
         async def handle_speech_started_event():
             """Handle interruption when the caller's speech starts."""
             nonlocal response_start_timestamp_twilio, last_assistant_item
-            print("Handling speech started event.")
+            dbg.notify_slack("Handling speech started event.")
             if mark_queue and response_start_timestamp_twilio is not None:
                 elapsed_time = latest_media_timestamp - response_start_timestamp_twilio
                 if SHOW_TIMING_MATH:
-                    print(f"Calculating elapsed time for truncation: {latest_media_timestamp} - {response_start_timestamp_twilio} = {elapsed_time}ms")
+                    dbg.notify_slack(f"Calculating elapsed time for truncation: {latest_media_timestamp} - {response_start_timestamp_twilio} = {elapsed_time}ms")
 
                 if last_assistant_item:
                     if SHOW_TIMING_MATH:
-                        print(f"Truncating item with ID: {last_assistant_item}, Truncated at: {elapsed_time}ms")
+                        dbg.notify_slack(f"Truncating item with ID: {last_assistant_item}, Truncated at: {elapsed_time}ms")
 
                     truncate_event = {
                         "type": "conversation.item.truncate",
@@ -193,7 +194,7 @@ async def send_initial_conversation_item(openai_ws):
             "content": [
                 {
                     "type": "input_text",
-                    "text": "Hey Rohan! What's up, how can I help you today?"
+                    "text": "Hey Rohan, Wassup, how can I help you today?"
                 }
             ]
         }
@@ -216,7 +217,7 @@ async def initialize_session(openai_ws):
             "temperature": 0.8,
         }
     }
-    print('Sending session update:', json.dumps(session_update))
+    dbg.notify_slack('Sending session update:', json.dumps(session_update))
     await openai_ws.send(json.dumps(session_update))
 
     # comment the next line to have the human speak first
